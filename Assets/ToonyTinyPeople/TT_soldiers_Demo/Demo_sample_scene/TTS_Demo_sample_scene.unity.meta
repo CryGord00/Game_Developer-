@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8ed749aca8d14c149b162c1588ef08c3
+timeCreated: 1519814630
+licenseType: Store
+DefaultImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180904
+  packageName: Toony Tiny Soldiers Demo
+  packageVersion: 1.0
+  assetPath: Assets/ToonyTinyPeople/TT_soldiers_Demo/Demo_sample_scene/TTS_Demo_sample_scene.unity
+  uploadId: 395174
