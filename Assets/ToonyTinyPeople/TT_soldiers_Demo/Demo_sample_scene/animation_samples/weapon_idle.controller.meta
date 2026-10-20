@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 94d76f859419a5048a2d6cf80ef45f88
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180904
+  packageName: Toony Tiny Soldiers Demo
+  packageVersion: 1.0
+  assetPath: Assets/ToonyTinyPeople/TT_soldiers_Demo/Demo_sample_scene/animation_samples/weapon_idle.controller
+  uploadId: 395174

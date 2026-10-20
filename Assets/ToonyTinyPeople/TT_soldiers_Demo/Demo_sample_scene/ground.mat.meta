@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fac272536e5a55040abe7ba6644d6e69
+timeCreated: 1519814631
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 180904
+  packageName: Toony Tiny Soldiers Demo
+  packageVersion: 1.0
+  assetPath: Assets/ToonyTinyPeople/TT_soldiers_Demo/Demo_sample_scene/ground.mat
+  uploadId: 395174
