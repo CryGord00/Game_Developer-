@@ -1,9 +1,13 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 public class GameFlow : MonoBehaviour
 {
     public static GameFlow Instance;
+
+    private static bool hasRetryCheckpoint;
+    private static Vector3 retryCheckpointPosition;
 
     [Header("Panel UI")]
     public GameObject winPanel;
@@ -14,7 +18,26 @@ public class GameFlow : MonoBehaviour
     public string mainMenuScene = "MainMenu";
 
     private bool gameEnded = false;
+    private bool gameLost;
     private bool showingFallbackLoseScreen;
+
+    public static void SetRetryCheckpoint(Vector3 position)
+    {
+        retryCheckpointPosition = position;
+        hasRetryCheckpoint = true;
+    }
+
+    public static bool TryConsumeRetryCheckpoint(out Vector3 position)
+    {
+        position = retryCheckpointPosition;
+        if (!hasRetryCheckpoint)
+        {
+            return false;
+        }
+
+        hasRetryCheckpoint = false;
+        return true;
+    }
 
     void Awake()
     {
@@ -26,6 +49,7 @@ public class GameFlow : MonoBehaviour
         // Pastikan game berjalan normal setiap scene dimulai (penting setelah Restart)
         Time.timeScale = 1f;
         gameEnded = false;
+        gameLost = false;
         showingFallbackLoseScreen = false;
 
         if (winPanel != null) winPanel.SetActive(false);
@@ -50,6 +74,7 @@ public class GameFlow : MonoBehaviour
             return;
 
         gameEnded = true;
+        gameLost = isLose;
 
         if (panel != null)
             panel.SetActive(true);
@@ -60,6 +85,19 @@ public class GameFlow : MonoBehaviour
         Time.timeScale = 0f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+    }
+
+    void Update()
+    {
+        if (!gameEnded || !gameLost || Keyboard.current == null)
+        {
+            return;
+        }
+
+        if (Keyboard.current.rKey.wasPressedThisFrame)
+        {
+            Restart();
+        }
     }
 
     // Hubungkan ke tombol Restart
@@ -75,6 +113,7 @@ public class GameFlow : MonoBehaviour
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        hasRetryCheckpoint = false;
         SceneManager.LoadScene(mainMenuScene);
     }
 
@@ -106,7 +145,7 @@ public class GameFlow : MonoBehaviour
 
         float buttonWidth = Mathf.Min(360f, panel.width - 40f);
         float buttonX = panel.x + (panel.width - buttonWidth) * 0.5f;
-        if (GUI.Button(new Rect(buttonX, panel.y + 108f, buttonWidth, 48f), "Retry"))
+        if (GUI.Button(new Rect(buttonX, panel.y + 108f, buttonWidth, 48f), "Retry (R)"))
         {
             Restart();
         }

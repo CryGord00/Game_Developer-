@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using TMPro;
 
 
 public class SlotUI : MonoBehaviour,
@@ -9,7 +10,7 @@ public class SlotUI : MonoBehaviour,
     IDropHandler, IPointerEnterHandler, IPointerExitHandler
 {
     public Image iconImage;
-    public Text amountText;
+    public TMP_Text amountText;
 
     private Inventory inventory;
     private int index;
