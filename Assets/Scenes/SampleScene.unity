@@ -697,12 +697,41 @@ MonoBehaviour:
   debugLog: 1
   requiredKey: {fileID: 0}
   consumeKey: 0
+  itemInsideDrawer: {fileID: 1915732498}
+  itemToCollect: {fileID: 11400000, guid: 8090bb6786eb1ee4286c6e2a7fdea1d3, type: 2}
+  itemLocalPosition: {x: 0, y: 0.12, z: 0.05}
   onOpened:
     m_PersistentCalls:
       m_Calls: []
   onLocked:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &244301730 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 808951037151294171, guid: 49f576a03ece56a4e9c640ed081f6a68, type: 3}
+  m_PrefabInstance: {fileID: 607669606}
+  m_PrefabAsset: {fileID: 0}
+--- !u!65 &244301734
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 244301730}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.012621371, y: 0.55621266, z: 0.72290826}
+  m_Center: {x: 0.00000044703484, y: 0, z: -0.00000023841858}
 --- !u!1 &288095095
 GameObject:
   m_ObjectHideFlags: 0
@@ -928,17 +957,29 @@ PrefabInstance:
       propertyPath: m_ApplyRootMotion
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6252356961376964981, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -2.061
+      objectReference: {fileID: 0}
+    - target: {fileID: 6252356961376964981, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.236
+      objectReference: {fileID: 0}
+    - target: {fileID: 6252356961376964981, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -1.046
+      objectReference: {fileID: 0}
     - target: {fileID: 6252356961376966267, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -3.432
       objectReference: {fileID: 0}
     - target: {fileID: 6252356961376966267, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.118
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 6252356961376966267, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 4.679
       objectReference: {fileID: 0}
     - target: {fileID: 6252356961376966267, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1562,6 +1603,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 808951037457566357, guid: 49f576a03ece56a4e9c640ed081f6a68, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1260347936}
+    - targetCorrespondingSourceObject: {fileID: 808951037151294171, guid: 49f576a03ece56a4e9c640ed081f6a68, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 244301734}
     - targetCorrespondingSourceObject: {fileID: 808951038249611984, guid: 49f576a03ece56a4e9c640ed081f6a68, type: 3}
       insertIndex: -1
       addedObject: {fileID: 81577175}
@@ -1606,6 +1650,9 @@ MonoBehaviour:
   debugLog: 1
   requiredKey: {fileID: 0}
   consumeKey: 0
+  itemInsideDrawer: {fileID: 0}
+  itemToCollect: {fileID: 0}
+  itemLocalPosition: {x: 0, y: 0.08, z: 0}
   onOpened:
     m_PersistentCalls:
       m_Calls: []
@@ -1790,6 +1837,9 @@ MonoBehaviour:
   debugLog: 1
   requiredKey: {fileID: 0}
   consumeKey: 0
+  itemInsideDrawer: {fileID: 0}
+  itemToCollect: {fileID: 0}
+  itemLocalPosition: {x: 0, y: 0.08, z: 0}
   onOpened:
     m_PersistentCalls:
       m_Calls: []
@@ -3818,6 +3868,9 @@ MonoBehaviour:
   debugLog: 1
   requiredKey: {fileID: 0}
   consumeKey: 0
+  itemInsideDrawer: {fileID: 0}
+  itemToCollect: {fileID: 0}
+  itemLocalPosition: {x: 0, y: 0.08, z: 0}
   onOpened:
     m_PersistentCalls:
       m_Calls: []
@@ -3856,9 +3909,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f79bd98e49d286047b6aa50e12bab948, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  item: {fileID: 11400000, guid: 8090bb6786eb1ee4286c6e2a7fdea1d3, type: 2}
-  amount: 1
-  interactDistance: 2
 --- !u!65 &1915732500
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3939,8 +3989,8 @@ Transform:
   m_GameObject: {fileID: 1915732498}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.76, y: -0.27, z: -2.85}
-  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
+  m_LocalPosition: {x: 2.74, y: 0.618, z: -12.83}
+  m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -4299,6 +4349,7 @@ MonoBehaviour:
   rotationSpeed: 720
   createTimerUI: 1
   doorOpeningDistance: 2.2
+  stuckRepathDelay: 1.25
   stoppingDistance: 1.5
   maxHealth: 100
 --- !u!195 &2091345532

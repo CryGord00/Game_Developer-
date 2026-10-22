@@ -12,12 +12,77 @@ public class InventorySlot
 
 public class Inventory : MonoBehaviour
 {
+    private static Sprite generatedKeyIcon;
+
     public int slotCount = 20;
     public List<InventorySlot> slots = new List<InventorySlot>();
 
     // UI akan subscribe ke event ini supaya otomatis refresh
     public event Action OnInventoryChanged;
     public event Action<ItemData> OnItemUsed;   // didengarkan script efek (mis. PlayerHealth)
+
+    public static void EnsureItemIcon(ItemData item)
+    {
+        if (item == null || item.itemType != ItemType.Key || item.icon != null)
+        {
+            return;
+        }
+
+        if (generatedKeyIcon == null)
+        {
+            const int size = 32;
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            Color clear = new Color(0f, 0f, 0f, 0f);
+            Color gold = new Color(1f, 0.68f, 0.12f, 1f);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int dx = x - 8;
+                    int dy = y - 16;
+                    int distance = dx * dx + dy * dy;
+                    bool ring = distance <= 49 && distance >= 20;
+                    bool shaft = x >= 12 && x <= 28 && y >= 14 && y <= 17;
+                    bool tooth = (x >= 21 && x <= 24 && y >= 10 && y <= 15) ||
+                                 (x >= 26 && x <= 29 && y >= 11 && y <= 15);
+                    texture.SetPixel(x, y, ring || shaft || tooth ? gold : clear);
+                }
+            }
+
+            texture.Apply();
+            generatedKeyIcon = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+            generatedKeyIcon.name = "GeneratedKeyIcon";
+        }
+
+        item.icon = generatedKeyIcon;
+    }
+
+    private void NotifyInventoryChanged()
+    {
+        Action listeners = OnInventoryChanged;
+        if (listeners == null)
+        {
+            return;
+        }
+
+        // A UI listener (for example a tooltip) must not interrupt the item
+        // transaction after the slot data has already been updated.
+        foreach (Action listener in listeners.GetInvocationList())
+        {
+            try
+            {
+                listener.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+            }
+        }
+    }
 
     void Awake()
     {
@@ -28,6 +93,16 @@ public class Inventory : MonoBehaviour
     // Return true kalau semua item berhasil masuk, false kalau inventory penuh
     public bool AddItem(ItemData item, int amount = 1)
     {
+        if (item == null || amount <= 0)
+        {
+            return false;
+        }
+
+        while (slots.Count < slotCount)
+        {
+            slots.Add(new InventorySlot());
+        }
+
         // 1) Isi dulu slot yang sudah berisi item sama (stacking)
         if (item.stackable)
         {
@@ -38,7 +113,7 @@ public class Inventory : MonoBehaviour
                     int add = Mathf.Min(item.maxStack - slot.amount, amount);
                     slot.amount += add;
                     amount -= add;
-                    if (amount <= 0) { OnInventoryChanged?.Invoke(); return true; }
+                    if (amount <= 0) { NotifyInventoryChanged(); return true; }
                 }
             }
         }
@@ -52,10 +127,10 @@ public class Inventory : MonoBehaviour
             slot.item = item;
             slot.amount = add;
             amount -= add;
-            if (amount <= 0) { OnInventoryChanged?.Invoke(); return true; }
+            if (amount <= 0) { NotifyInventoryChanged(); return true; }
         }
 
-        OnInventoryChanged?.Invoke();
+        NotifyInventoryChanged();
         Debug.Log("Inventory penuh!");
         return false;
     }
@@ -71,7 +146,7 @@ public class Inventory : MonoBehaviour
             slot.item = null;
             slot.amount = 0;
         }
-        OnInventoryChanged?.Invoke();
+        NotifyInventoryChanged();
     }
 
     // Hapus berdasarkan item (cari slot pertama yang berisi item ini)
@@ -107,7 +182,7 @@ public class Inventory : MonoBehaviour
             (sa.item, sb.item) = (sb.item, sa.item);
             (sa.amount, sb.amount) = (sb.amount, sa.amount);
         }
-        OnInventoryChanged?.Invoke();
+        NotifyInventoryChanged();
     }
 
     // Hapus seluruh isi satu slot
@@ -115,7 +190,7 @@ public class Inventory : MonoBehaviour
     {
         slots[slotIndex].item = null;
         slots[slotIndex].amount = 0;
-        OnInventoryChanged?.Invoke();
+        NotifyInventoryChanged();
     }
 
     public void UseItem(int slotIndex)

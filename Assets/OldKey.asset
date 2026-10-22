@@ -12,8 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45c2c1e98461d534baf25e387b63b9db, type: 3}
   m_Name: OldKey
   m_EditorClassIdentifier: 
-  itemName: Kunci Tua
+  itemName: Kunci Locker Room
   icon: {fileID: 0}
-  description: Entah membuka pintu yang mana
+  description: Kunci yang ditemukan di dalam laci Locker Room.
   stackable: 0
   maxStack: 1
+  itemType: 2
+  consumeOnUse: 0
+  effectValue: 0

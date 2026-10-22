@@ -78,6 +78,8 @@ public class BossController : MonoBehaviour
     [SerializeField, Min(0f)] private float rotationSpeed = 720f;
     [SerializeField] private bool createTimerUI = true;
     [SerializeField, Min(0.25f)] private float doorOpeningDistance = 2.2f;
+    [Tooltip("Waktu tanpa perpindahan sebelum jalur dihitung ulang saat Boss tertahan.")]
+    [SerializeField, Min(0.25f)] private float stuckRepathDelay = 1.25f;
 
     [Tooltip("Jarak berhenti Boss dari Player.")]
     [SerializeField, Min(0f)] private float stoppingDistance = 1.5f;
@@ -104,6 +106,8 @@ public class BossController : MonoBehaviour
     private bool navigationReady;
     private bool hasNavigationDestination;
     private Vector3 lastNavigationDestination;
+    private Vector3 lastProgressPosition;
+    private float lastProgressTime;
 
     private const string IsWalkingParameter = "isWalking";
     private const string AttackState = "m_melee_combat_attack_A";
@@ -156,6 +160,8 @@ public class BossController : MonoBehaviour
 
         ConfigureAgent();
         ConfigureMovementController();
+        lastProgressPosition = transform.position;
+        lastProgressTime = Time.time;
     }
 
     private void Start()
@@ -218,7 +224,11 @@ public class BossController : MonoBehaviour
         {
             if (agent.Warp(spawnHit.position))
             {
+                // updatePosition=false berarti Warp tidak selalu memindahkan
+                // Transform yang digerakkan CharacterController.
+                transform.position = spawnHit.position;
                 transform.rotation = bossSpawnPoint.rotation;
+                agent.nextPosition = spawnHit.position;
                 return;
             }
         }
@@ -269,8 +279,8 @@ public class BossController : MonoBehaviour
             return;
         }
 
-        // Agent menghitung rute; CharacterController menggerakkan boss agar
-        // gerakan fisiknya tertahan dinding dan pintu.
+        // Jalur lengkap digerakkan oleh NavMeshAgent supaya Boss mengikuti
+        // koridor tanpa tertahan collider daun pintu.
         agent.updatePosition = false;
         agent.updateRotation = false;
     }
@@ -297,15 +307,10 @@ public class BossController : MonoBehaviour
 
     private void IgnoreDoorGeometryWhenBaking()
     {
-        if (playerTarget != null)
-        {
-            MarkDoorAsDynamicGeometry(playerTarget.gameObject);
-        }
-
         for (int i = 0; i < animatedDoors.Length; i++)
         {
             opencloseDoor door = animatedDoors[i];
-            if (door != null && door.openandclose != null)
+            if (door != null && door.openandclose != null && IsBossSizedDoor(door.transform))
             {
                 MarkDoorAsDynamicGeometry(door.openandclose.gameObject);
             }
@@ -313,7 +318,7 @@ public class BossController : MonoBehaviour
 
         for (int i = 0; i < scriptedDoors.Length; i++)
         {
-            if (scriptedDoors[i] != null)
+            if (scriptedDoors[i] != null && IsBossSizedDoor(scriptedDoors[i].transform))
             {
                 MarkDoorAsDynamicGeometry(scriptedDoors[i].gameObject);
             }
@@ -354,25 +359,77 @@ public class BossController : MonoBehaviour
         for (int i = 0; i < animatedDoors.Length; i++)
         {
             opencloseDoor door = animatedDoors[i];
-            if (door == null || door.open)
+            if (door == null || !IsBossSizedDoor(door.transform))
             {
                 continue;
             }
 
-            if (IsDoorAheadOrClose(door.transform.position))
+            if (!IsDoorAheadOrClose(door.transform.position))
+            {
+                continue;
+            }
+
+            if (!door.open)
             {
                 door.SetOpen(true);
             }
+
         }
 
         for (int i = 0; i < scriptedDoors.Length; i++)
         {
             Door door = scriptedDoors[i];
-            if (door != null && !door.IsOpen && IsDoorAheadOrClose(door.transform.position))
+            if (door == null || !IsBossSizedDoor(door.transform))
+            {
+                continue;
+            }
+
+            if (!IsDoorAheadOrClose(door.transform.position))
+            {
+                continue;
+            }
+
+            if (!door.IsOpen)
             {
                 door.SetOpen(true);
             }
+
         }
+    }
+
+    private bool IsBossSizedDoor(Transform doorRoot)
+    {
+        if (doorRoot == null)
+        {
+            return false;
+        }
+
+        // Proyek juga memakai opencloseDoor pada pintu kabinet. Menganggapnya
+        // sebagai pintu ruangan membuat animasi kabinet bergerak (termasuk Glass
+        // sebagai child) ketika Boss lewat. Hanya pintu dengan collider setinggi
+        // pintu manusia yang boleh dibuka atau diabaikan collision-nya oleh Boss.
+        Collider[] colliders = doorRoot.GetComponentsInChildren<Collider>(true);
+        bool hasBounds = false;
+        Bounds combinedBounds = default;
+        foreach (Collider doorCollider in colliders)
+        {
+            if (doorCollider == null || doorCollider.isTrigger)
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                combinedBounds = doorCollider.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                combinedBounds.Encapsulate(doorCollider.bounds);
+            }
+        }
+
+        return hasBounds && combinedBounds.size.y >= 1.5f;
     }
 
     private bool IsDoorAheadOrClose(Vector3 doorPosition)
@@ -380,13 +437,55 @@ public class BossController : MonoBehaviour
         Vector3 toDoor = doorPosition - transform.position;
         toDoor.y = 0f;
         float distance = toDoor.magnitude;
-        if (distance > doorOpeningDistance)
+        // Buka pintu sebelum Boss mencapai collider; pintu animasi butuh waktu
+        // untuk berputar dan collider daun pintu masih aktif selama animasi.
+        float openingLeadDistance = Mathf.Max(
+            doorOpeningDistance,
+            movementSpeed * 0.8f + (agent != null ? agent.radius : 0.35f) + 0.5f);
+        if (distance > openingLeadDistance)
         {
             return false;
         }
 
-        return distance <= 0.75f ||
-               Vector3.Dot(transform.forward, toDoor.normalized) >= -0.1f;
+        Vector3 travelDirection = GetTravelDirection();
+        if (travelDirection.sqrMagnitude <= 0.001f)
+        {
+            return distance <= 0.75f;
+        }
+
+        float alongPath = Vector3.Dot(toDoor, travelDirection);
+        if (alongPath < -0.25f || alongPath > openingLeadDistance)
+        {
+            return false;
+        }
+
+        Vector3 offsetFromPath = toDoor - travelDirection * alongPath;
+        return offsetFromPath.magnitude <= 1.25f;
+    }
+
+    private Vector3 GetTravelDirection()
+    {
+        if (CanUseAgent() && agent.hasPath && !agent.pathPending)
+        {
+            Vector3 direction = agent.steeringTarget - transform.position;
+            direction.y = 0f;
+            if (direction.sqrMagnitude > 0.001f)
+            {
+                return direction.normalized;
+            }
+        }
+
+        Transform destination = currentState == BossState.Chase
+            ? playerTarget
+            : GetCurrentPatrolDestination();
+        if (destination == null)
+        {
+            return Vector3.zero;
+        }
+
+        Vector3 fallback = destination.position - transform.position;
+        fallback.y = 0f;
+        return fallback.sqrMagnitude > 0.001f ? fallback.normalized : Vector3.zero;
     }
 
     private void Update()
@@ -609,12 +708,17 @@ public class BossController : MonoBehaviour
 
     private bool HasReachedPatrolDestination(Vector3 destination)
     {
+        if (HorizontalDistanceTo(destination) <= patrolArrivalDistance)
+        {
+            return true;
+        }
+
         if (navigationReady && CanUseAgent())
         {
             return !agent.pathPending &&
                    agent.pathStatus == NavMeshPathStatus.PathComplete &&
                    agent.hasPath &&
-                   agent.remainingDistance <= patrolArrivalDistance;
+                   agent.remainingDistance <= patrolArrivalDistance + agent.radius;
         }
 
         return HorizontalDistanceTo(destination) <= patrolArrivalDistance;
@@ -688,20 +792,43 @@ public class BossController : MonoBehaviour
             return;
         }
 
-        if (agent.pathStatus == NavMeshPathStatus.PathInvalid)
+        if (Vector3.Distance(transform.position, lastProgressPosition) > 0.08f)
         {
+            lastProgressPosition = transform.position;
+            lastProgressTime = Time.time;
+        }
+        else if (Time.time - lastProgressTime >= stuckRepathDelay)
+        {
+            agent.ResetPath();
+            hasNavigationDestination = false;
+            lastProgressPosition = transform.position;
+            lastProgressTime = Time.time;
             SetWalkingAnimation(false);
             return;
+        }
+
+        bool hasCompletePath = agent.pathStatus == NavMeshPathStatus.PathComplete;
+        if (agent.updatePosition != hasCompletePath)
+        {
+            // Hindari mencampur gerakan fisik CharacterController dengan Agent.
+            agent.nextPosition = transform.position;
+            agent.updatePosition = hasCompletePath;
         }
 
         float remainingDistance = agent.remainingDistance;
-        if (!float.IsInfinity(remainingDistance) && remainingDistance <= stopDistance + 0.05f)
+        if (hasCompletePath && !float.IsInfinity(remainingDistance) &&
+            remainingDistance <= stopDistance + 0.05f)
         {
             SetWalkingAnimation(false);
             return;
         }
 
-        Vector3 steeringDirection = agent.steeringTarget - transform.position;
+        // Jalur parsial sering berakhir di sisi dalam pintu yang belum bisa
+        // dimasuki NavMesh. Tetap bergerak ke tujuan sebenarnya; CharacterController
+        // menahan Boss pada dinding dan TryOpenNearbyDoors membuka pintu di depannya.
+        Vector3 steeringDirection = hasCompletePath
+            ? agent.steeringTarget - transform.position
+            : navigationDestination - transform.position;
         steeringDirection.y = 0f;
         if (steeringDirection.sqrMagnitude <= 0.0025f)
         {
@@ -721,6 +848,13 @@ public class BossController : MonoBehaviour
             transform.rotation,
             facing,
             rotationSpeed * Time.deltaTime);
+
+        if (hasCompletePath)
+        {
+            // Agent menggerakkan Transform tepat di sepanjang jalur NavMesh.
+            SetWalkingAnimation(agent.velocity.sqrMagnitude > 0.01f);
+            return;
+        }
 
         float step = movementSpeed * Time.deltaTime;
         Vector3 moved = MoveWithWallSlide(steeringDirection * step);
@@ -974,6 +1108,7 @@ public class BossController : MonoBehaviour
         patrolArrivalDistance = Mathf.Max(0.05f, patrolArrivalDistance);
         scanFieldOfView = Mathf.Clamp(scanFieldOfView, 1f, 360f);
         doorOpeningDistance = Mathf.Max(0.25f, doorOpeningDistance);
+        stuckRepathDelay = Mathf.Max(0.25f, stuckRepathDelay);
     }
 #endif
 

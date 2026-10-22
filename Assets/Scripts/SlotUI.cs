@@ -26,16 +26,30 @@ public class SlotUI : MonoBehaviour,
 
     public void Refresh(InventorySlot slot)
     {
+        if (slot == null)
+        {
+            Debug.LogError("SlotUI: data slot inventory bernilai null.", this);
+            return;
+        }
+
         if (slot.IsEmpty)
         {
-            iconImage.enabled = false;
-            amountText.text = "";
+            if (iconImage != null)
+                iconImage.enabled = false;
+
+            if (amountText != null)
+                amountText.text = "";
         }
         else
         {
-            iconImage.enabled = true;
-            iconImage.sprite = slot.item.icon;
-            amountText.text = slot.amount > 1 ? slot.amount.ToString() : "";
+            if (iconImage != null)
+            {
+                iconImage.enabled = slot.item != null && slot.item.icon != null;
+                iconImage.sprite = slot.item != null ? slot.item.icon : null;
+            }
+
+            if (amountText != null)
+                amountText.text = slot.amount > 1 ? slot.amount.ToString() : "";
         }
 
         // Update tooltip kalau kursor sedang di atas slot ini
@@ -66,8 +80,18 @@ public class SlotUI : MonoBehaviour,
     public void OnPointerEnter(PointerEventData eventData)
     {
         hovered = true;
+        if (inventory == null || inventory.slots == null ||
+            index < 0 || index >= inventory.slots.Count)
+        {
+            TooltipUI.Hide();
+            return;
+        }
+
         var slot = inventory.slots[index];
-        if (!slot.IsEmpty) TooltipUI.Show(slot.item);
+        if (slot != null && !slot.IsEmpty)
+            TooltipUI.Show(slot.item);
+        else
+            TooltipUI.Hide();
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -132,6 +156,9 @@ public class SlotUI : MonoBehaviour,
 
     private void SetIconAlpha(float a)
     {
+        if (iconImage == null)
+            return;
+
         Color c = iconImage.color;
         c.a = a;
         iconImage.color = c;

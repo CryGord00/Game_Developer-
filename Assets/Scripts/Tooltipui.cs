@@ -18,12 +18,16 @@ public class TooltipUI : MonoBehaviour
     {
         Instance = this;
         group = GetComponent<CanvasGroup>();
-        rect = (RectTransform)transform;
-        rect.pivot = new Vector2(0f, 1f);   // pojok kiri atas mengikuti kursor
+        rect = transform as RectTransform;
+        if (rect != null)
+            rect.pivot = new Vector2(0f, 1f);   // pojok kiri atas mengikuti kursor
 
-        group.blocksRaycasts = false;       // tooltip tidak boleh menghalangi mouse
-        group.interactable = false;
-        group.alpha = 0f;
+        if (group != null)
+        {
+            group.blocksRaycasts = false;       // tooltip tidak boleh menghalangi mouse
+            group.interactable = false;
+            group.alpha = 0f;
+        }
     }
 
     void OnDestroy()
@@ -35,28 +39,34 @@ public class TooltipUI : MonoBehaviour
     {
         if (Instance == null || item == null) return;
 
-        Instance.nameText.text = item.itemName;
-        Instance.descriptionText.text = item.description;
-        Instance.group.alpha = 1f;
+        if (Instance.nameText != null)
+            Instance.nameText.text = item.itemName;
+
+        if (Instance.descriptionText != null)
+            Instance.descriptionText.text = item.description;
+
+        if (Instance.group != null)
+            Instance.group.alpha = 1f;
+
         Instance.transform.SetAsLastSibling();
         Instance.UpdatePosition();
     }
 
     public static void Hide()
     {
-        if (Instance != null)
+        if (Instance != null && Instance.group != null)
             Instance.group.alpha = 0f;
     }
 
     void LateUpdate()
     {
-        if (group.alpha > 0f)
+        if (group != null && group.alpha > 0f)
             UpdatePosition();
     }
 
     void UpdatePosition()
     {
-        if (Mouse.current == null) return;
+        if (Mouse.current == null || rect == null) return;
 
         Vector2 mouse = Mouse.current.position.ReadValue();
         Vector2 size = new Vector2(rect.rect.width * rect.lossyScale.x,
