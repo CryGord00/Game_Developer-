@@ -38,7 +38,7 @@ public class BossController : MonoBehaviour
     [SerializeField] private bool useBossSpawnPoint = true;
 
     [Header("Patrol")]
-    [Tooltip("Urutkan titik: Boss Room, ruang tengah, Locker Room, lalu dapur. Boss kembali ke titik pertama setelah dapur.")]
+    [Tooltip("Urutkan titik: PatrolPoint 1 Boss Room, 2 ruang tengah, 3 Locker Room, 4 dapur. Rute Boss: 1 > 2 > 3 > 4 > 2 > 1, lalu berulang.")]
     [SerializeField] private Transform[] patrolPoints;
 
     [SerializeField, Min(0f)] private float patrolPauseMinimum = 5f;
@@ -101,7 +101,12 @@ public class BossController : MonoBehaviour
     private float nextAttackTime;
     private bool warnedAboutPlayer;
     private int patrolPointIndex;
+    private int patrolRouteStep;
     private float patrolPauseEndsAt;
+    private float bossRoomWaitUntil;
+    private bool heroEnteredBossRoom;
+    private bool bossRoomWaitActive;
+    private bool bossRoomWaitCompletedForVisit;
     private bool isWaitingAtPatrolPoint;
     private bool isWaitingForPatrolStart;
     private float patrolStartAt;
@@ -124,6 +129,7 @@ public class BossController : MonoBehaviour
     private const string IsWalkingParameter = "isWalking";
     private const string AttackState = "m_melee_combat_attack_A";
     private const string IdleState = "m_idle_A";
+    private static readonly int[] PatrolRoute = { 0, 1, 2, 3, 1 };
 
     private void Reset()
     {
@@ -1071,6 +1077,14 @@ public class BossController : MonoBehaviour
             transform.position,
             playerTarget.position);
 
+        if (IsBossWaitingForRoomEntry())
+        {
+            SetWalkingAnimation(false);
+            StopAgent();
+            UpdateHeartbeatEffect();
+            return;
+        }
+
         TryOpenNearbyDoors();
 
         // Tunggu daun DoorFrame_Apt_01 (1) selesai membuka sebelum Boss
@@ -1136,6 +1150,53 @@ public class BossController : MonoBehaviour
         }
 
         UpdateHeartbeatEffect();
+    }
+
+    public void NotifyHeroEnteredBossRoom()
+    {
+        heroEnteredBossRoom = true;
+    }
+
+    private bool IsBossWaitingForRoomEntry()
+    {
+        if (patrolPoints == null || patrolPoints.Length == 0 || patrolPoints[0] == null || playerTarget == null)
+        {
+            return false;
+        }
+
+        bool heroAtBossRoomPoint = HorizontalDistanceBetween(playerTarget.position, patrolPoints[0].position) <= 2.5f;
+        if (!heroAtBossRoomPoint)
+        {
+            bossRoomWaitActive = false;
+            bossRoomWaitCompletedForVisit = false;
+            return false;
+        }
+
+        if (bossRoomWaitActive)
+        {
+            if (Time.time < bossRoomWaitUntil)
+            {
+                return true;
+            }
+
+            bossRoomWaitActive = false;
+            bossRoomWaitCompletedForVisit = true;
+            return false;
+        }
+
+        bool bossReturningToPointOne =
+                                       ((currentState == BossState.Chase || currentState == BossState.Attack) &&
+                                        HorizontalDistanceBetween(transform.position, patrolPoints[0].position) > 2.5f) ||
+                                       (currentState == BossState.Patrol && patrolPointIndex == 0);
+        if (!heroEnteredBossRoom || bossRoomWaitCompletedForVisit || !bossReturningToPointOne)
+        {
+            return false;
+        }
+
+        bossRoomWaitActive = true;
+        bossRoomWaitUntil = Time.time + 25f;
+        ChangeState(BossState.Idle);
+        return true;
     }
 
     private BossState DetermineState(float distanceToPlayer, bool canSeePlayer)
@@ -1419,11 +1480,14 @@ public class BossController : MonoBehaviour
         {
             if (currentState == BossState.Patrol)
             {
-                // PathComplete juga dapat macet di collider runtime (contohnya
-                // pintu). Reset dan kirim ulang path setiap frame hanya
-                // mengulang kegagalan yang sama, jadi lanjutkan patrol dengan
-                // CharacterController setelah tidak ada progres.
-                MoveOnPatrolFallback(destinationPosition, stopDistance);
+                // Pertahankan NavMeshAgent saat jalur patrol tertahan. Menonaktifkan
+                // agent untuk memakai gerak lurus CharacterController membuat Boss
+                // mudah tersangkut di kusen/dinding saat kembali dari PatrolPoint 4.
+                agent.ResetPath();
+                hasNavigationDestination = false;
+                lastProgressPosition = transform.position;
+                lastProgressTime = Time.time;
+                SetWalkingAnimation(false);
                 return;
             }
 
@@ -1536,14 +1600,46 @@ public class BossController : MonoBehaviour
     private void BeginPatrolPause()
     {
         RestoreNavigationAgentAtCurrentPosition();
+
+        if (patrolPointIndex == 0 &&
+            (!IsHeroAtBossRoomPoint() || bossRoomWaitCompletedForVisit))
+        {
+            isWaitingAtPatrolPoint = false;
+            AdvancePatrolPoint();
+            SetWalkingAnimation(false);
+            StopAgent();
+            return;
+        }
+
+        // Setelah kunjungan ke PatrolPoint 4, Boss melewati PatrolPoint 2
+        // hanya sebagai jalur pulang lalu langsung kembali ke PatrolPoint 1.
+        // Jeda 5–7 detik sudah dijalani di PatrolPoint 4.
+        bool returningFromPointFour = patrolPoints != null && patrolPoints.Length >= 4 &&
+            patrolPointIndex == 1 && patrolRouteStep == PatrolRoute.Length - 1;
+        if (returningFromPointFour)
+        {
+            isWaitingAtPatrolPoint = false;
+            AdvancePatrolPoint();
+            SetWalkingAnimation(false);
+            StopAgent();
+            return;
+        }
+
         isWaitingAtPatrolPoint = true;
-        // Titik pertama adalah BossRoom; titik 2, 3, dan 4 berhenti 5-7 detik.
+        // At PP1, wait only while the Hero is occupying the Boss Room.
         float pauseDuration = patrolPointIndex == 0
-            ? initialCountdown
+            ? 25f
             : Random.Range(patrolPauseMinimum, patrolPauseMaximum);
         patrolPauseEndsAt = Time.time + pauseDuration;
         SetWalkingAnimation(false);
         StopAgent();
+    }
+
+    private bool IsHeroAtBossRoomPoint()
+    {
+        return heroEnteredBossRoom && patrolPoints != null && patrolPoints.Length > 0 &&
+               patrolPoints[0] != null && playerTarget != null &&
+               HorizontalDistanceBetween(playerTarget.position, patrolPoints[0].position) <= 2.5f;
     }
 
     private void RestoreNavigationAgentAtCurrentPosition()
@@ -1585,6 +1681,18 @@ public class BossController : MonoBehaviour
         if (patrolPoints == null || patrolPoints.Length == 0)
         {
             patrolPointIndex = 0;
+            return;
+        }
+
+        if (patrolPointIndex == 0)
+        {
+            bossRoomWaitCompletedForVisit = false;
+        }
+
+        if (patrolPoints.Length >= 4)
+        {
+            patrolRouteStep = (patrolRouteStep + 1) % PatrolRoute.Length;
+            patrolPointIndex = PatrolRoute[patrolRouteStep];
             return;
         }
 
@@ -1918,7 +2026,12 @@ public class BossController : MonoBehaviour
         }
 
         string timerLabel;
-        if (currentState == BossState.Attack)
+        if (bossRoomWaitActive && Time.time < bossRoomWaitUntil)
+        {
+            timerLabel = "Boss menunggu sebelum masuk: " +
+                Mathf.CeilToInt(bossRoomWaitUntil - Time.time) + " detik";
+        }
+        else if (currentState == BossState.Attack)
         {
             timerLabel = "Boss menyerang player";
         }

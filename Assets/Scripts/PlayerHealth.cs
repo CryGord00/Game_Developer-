@@ -51,7 +51,7 @@ public class PlayerHealth : MonoBehaviour
             string checkpointName = PlayerPrefs.GetString(retryKey);
             foreach (BossPatrolWaypoint checkpoint in retryCheckpoints)
             {
-                if (checkpoint != null && checkpoint.name == checkpointName)
+                if (checkpoint != null && checkpoint.name == checkpointName && !IsBossRoomCheckpoint(checkpoint))
                 {
                     lastReachedCheckpoint = checkpoint;
                     MoveToRetryCheckpoint(checkpoint.transform.position);
@@ -87,7 +87,7 @@ public class PlayerHealth : MonoBehaviour
         float nearestDistance = CheckpointReachDistance;
         foreach (BossPatrolWaypoint checkpoint in retryCheckpoints)
         {
-            if (checkpoint == null)
+            if (checkpoint == null || IsBossRoomCheckpoint(checkpoint))
             {
                 continue;
             }
@@ -187,7 +187,7 @@ public class PlayerHealth : MonoBehaviour
             float nearestDistance = float.MaxValue;
             foreach (BossPatrolWaypoint checkpoint in retryCheckpoints)
             {
-                if (checkpoint == null)
+                if (checkpoint == null || IsBossRoomCheckpoint(checkpoint))
                 {
                     continue;
                 }
@@ -244,6 +244,12 @@ public class PlayerHealth : MonoBehaviour
         first.y = 0f;
         second.y = 0f;
         return Vector3.Distance(first, second);
+    }
+
+    private static bool IsBossRoomCheckpoint(BossPatrolWaypoint checkpoint)
+    {
+        return checkpoint != null &&
+               checkpoint.name.IndexOf("BossRoom", System.StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static string GetRetryCheckpointKey()

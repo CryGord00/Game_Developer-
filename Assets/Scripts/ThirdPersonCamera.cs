@@ -26,6 +26,7 @@ public class ThirdPersonCamera : MonoBehaviour
     private float yaw;
     private float pitch = 15f;
     private float currentDistance;
+    private readonly RaycastHit[] cameraHits = new RaycastHit[32];
 
     void Start()
     {
@@ -78,28 +79,52 @@ public class ThirdPersonCamera : MonoBehaviour
         Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 direction = rotation * Vector3.back;
 
-        // Dekatkan kamera kalau ada dinding di belakang hero
+        // Cari penghalang terdekat di belakang hero. SphereCastAll/NonAlloc
+        // diperlukan karena collider hero sendiri bisa menjadi hit pertama;
+        // jika hanya memeriksa satu hit, kamera dapat menembus furnitur.
         float wantedDistance = distance;
-        if (Physics.SphereCast(
+        int hitCount = Physics.SphereCastNonAlloc(
                 focusPoint,
                 collisionRadius,
                 direction,
-                out RaycastHit hit,
+                cameraHits,
                 distance,
                 collisionMask,
-                QueryTriggerInteraction.Ignore))
+                QueryTriggerInteraction.Ignore);
+        float closestObstacleDistance = distance;
+        bool foundObstacle = false;
+        for (int i = 0; i < hitCount; i++)
         {
-            if (!hit.collider.transform.IsChildOf(target))
+            Collider hitCollider = cameraHits[i].collider;
+            if (hitCollider == null || hitCollider.transform == target ||
+                hitCollider.transform.IsChildOf(target))
             {
-                wantedDistance = Mathf.Max(hit.distance, minDistance);
+                continue;
+            }
+
+            if (cameraHits[i].distance < closestObstacleDistance)
+            {
+                closestObstacleDistance = cameraHits[i].distance;
+                foundObstacle = true;
             }
         }
 
-        currentDistance = Mathf.Lerp(
-            currentDistance,
-            wantedDistance,
-            followSmooth * Time.deltaTime
-        );
+        if (foundObstacle)
+        {
+            // Jangan biarkan kamera masuk ke tubuh Hero saat collider furnitur
+            // berada sangat dekat. Batas minimum juga mencegah tampilan close-up
+            // ekstrem ketika dialog laci menghentikan waktu permainan.
+            float safeMinimumDistance = Mathf.Clamp(minDistance, 0.1f, distance);
+            wantedDistance = Mathf.Max(
+                safeMinimumDistance,
+                Mathf.Min(distance, closestObstacleDistance - 0.05f));
+        }
+
+        // Masuk mendekati hero langsung saat ada penghalang, lalu mundur halus
+        // setelah jalurnya kembali lapang agar kamera tidak sempat menembus objek.
+        currentDistance = wantedDistance < currentDistance
+            ? wantedDistance
+            : Mathf.Lerp(currentDistance, wantedDistance, followSmooth * Time.unscaledDeltaTime);
 
         transform.position = focusPoint + direction * currentDistance;
         transform.rotation = Quaternion.LookRotation(

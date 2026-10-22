@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
 public class HeroMovement : MonoBehaviour
@@ -42,9 +43,15 @@ public class HeroMovement : MonoBehaviour
 
     void Update()
     {
-        // WASD dan tombol panah (Input Manager bawaan Unity)
-        float horizontal = Input.GetAxisRaw("Horizontal");
-        float vertical = Input.GetAxisRaw("Vertical");
+        // Read movement directly from the new Input System used by this project.
+        // No movement is applied unless a movement key is held.
+        Keyboard keyboard = Keyboard.current;
+        float horizontal = keyboard == null ? 0f :
+            (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1f : 0f) -
+            (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1f : 0f);
+        float vertical = keyboard == null ? 0f :
+            (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1f : 0f) -
+            (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1f : 0f);
 
         Vector3 input = new Vector3(horizontal, 0f, vertical).normalized;
 

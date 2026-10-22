@@ -202,7 +202,10 @@ public class Inventory : MonoBehaviour
 
         if (item.itemType != ItemType.Consumable)
         {
-            Debug.Log(item.itemName + " tidak bisa dipakai langsung.");
+            // Keys are checked by the corresponding door interaction while
+            // they remain in the inventory; clicking the key does nothing.
+            if (item.itemType != ItemType.Key)
+                Debug.Log(item.itemName + " tidak bisa dipakai langsung.");
             return;
         }
 

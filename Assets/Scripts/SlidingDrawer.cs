@@ -46,6 +46,7 @@ public class SlidingDrawer : MonoBehaviour
     private Transform hero;
     private Inventory inventory;
     private Renderer rend;
+    private BoxCollider openingBlocker;
     private bool pickupConfirmationOpen;
     private string pickupMessage;
     private float previousTimeScale;
@@ -75,6 +76,7 @@ public class SlidingDrawer : MonoBehaviour
         closedPos = movingPart.localPosition;
         openPos = closedPos + openOffset;
         rend = movingPart.GetComponent<Renderer>() ?? movingPart.GetComponentInChildren<Renderer>();
+        CreateOpeningBlocker();
 
         if (itemInsideDrawer != null)
         {
@@ -301,7 +303,11 @@ public class SlidingDrawer : MonoBehaviour
 
             // Biarkan laci terbuka sampai item di dalamnya sudah diambil.
             if (canClose && (itemInsideDrawer == null || !itemInsideDrawer.activeSelf))
+            {
                 isOpen = false;
+                if (openingBlocker != null)
+                    openingBlocker.enabled = false;
+            }
             return;
         }
 
@@ -319,7 +325,10 @@ public class SlidingDrawer : MonoBehaviour
         }
 
         KeepHeroClearOfDrawer();
+        KeepHeroOutsideDrawerOpening();
         isOpen = true;
+        if (openingBlocker != null)
+            openingBlocker.enabled = true;
         if (itemInsideDrawer != null)
         {
             // OldKey has no serialized icon. Generate one before the inventory
@@ -372,6 +381,90 @@ public class SlidingDrawer : MonoBehaviour
         away.Normalize();
         float clearance = heroController.radius + openOffset.magnitude + 0.15f;
         heroController.Move(away * clearance);
+    }
+
+    private void CreateOpeningBlocker()
+    {
+        if (rend == null || movingPart == null)
+        {
+            return;
+        }
+
+        // MeshCollider pada daun laci ikut bergerak keluar, sehingga rongga
+        // lemari menjadi dapat dimasuki. Collider tipis ini tetap pada posisi
+        // tertutup dan menahan Hero di luar rongga selama laci terbuka.
+        Bounds drawerBounds = rend.bounds;
+        GameObject blockerObject = new GameObject(name + "_OpeningBlocker", typeof(BoxCollider));
+        blockerObject.transform.SetPositionAndRotation(drawerBounds.center, movingPart.rotation);
+        openingBlocker = blockerObject.GetComponent<BoxCollider>();
+        openingBlocker.size = drawerBounds.size + new Vector3(0.08f, 0.08f, 0.12f);
+        openingBlocker.enabled = false;
+        IgnoreBossCollisionWithOpeningBlocker();
+    }
+
+    private void IgnoreBossCollisionWithOpeningBlocker()
+    {
+        if (openingBlocker == null)
+        {
+            return;
+        }
+
+        BossController[] bosses = FindObjectsByType<BossController>(FindObjectsSortMode.None);
+        foreach (BossController boss in bosses)
+        {
+            if (boss == null)
+            {
+                continue;
+            }
+
+            Collider[] colliders = boss.GetComponentsInChildren<Collider>(true);
+            foreach (Collider bossCollider in colliders)
+            {
+                if (bossCollider != null && !bossCollider.isTrigger)
+                {
+                    Physics.IgnoreCollision(bossCollider, openingBlocker, true);
+                }
+            }
+        }
+    }
+
+    private void KeepHeroOutsideDrawerOpening()
+    {
+        if (hero == null || movingPart == null || openingBlocker == null)
+        {
+            return;
+        }
+
+        CharacterController heroController = hero.GetComponent<CharacterController>();
+        if (heroController == null)
+        {
+            return;
+        }
+
+        Vector3 outward = movingPart.parent != null
+            ? movingPart.parent.TransformVector(openOffset)
+            : openOffset;
+        outward.y = 0f;
+        if (outward.sqrMagnitude < 0.0001f)
+        {
+            outward = -movingPart.forward;
+            outward.y = 0f;
+        }
+        if (outward.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        outward.Normalize();
+        Bounds blockerBounds = openingBlocker.bounds;
+        Vector3 absoluteDirection = new Vector3(Mathf.Abs(outward.x), 0f, Mathf.Abs(outward.z));
+        float blockerHalfDepth = Vector3.Dot(absoluteDirection, blockerBounds.extents);
+        float heroDistance = Vector3.Dot(hero.position - blockerBounds.center, outward);
+        float requiredDistance = blockerHalfDepth + heroController.radius + 0.1f;
+        if (heroDistance < requiredDistance)
+        {
+            heroController.Move(outward * (requiredDistance - heroDistance));
+        }
     }
 
     private void OpenPickupConfirmation()
@@ -533,6 +626,11 @@ public class SlidingDrawer : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (openingBlocker != null)
+        {
+            Destroy(openingBlocker.gameObject);
+        }
+
         if (pickupConfirmationOpen)
         {
             ClosePickupConfirmation();
