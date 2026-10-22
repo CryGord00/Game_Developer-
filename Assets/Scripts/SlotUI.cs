@@ -2,14 +2,14 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
-using TMPro;
+
 
 public class SlotUI : MonoBehaviour,
     IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler,
     IDropHandler, IPointerEnterHandler, IPointerExitHandler
 {
     public Image iconImage;
-    public TMP_Text amountText;
+    public Text amountText;
 
     private Inventory inventory;
     private int index;

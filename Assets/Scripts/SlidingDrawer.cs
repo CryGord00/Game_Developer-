@@ -12,6 +12,7 @@ public class SlidingDrawer : MonoBehaviour
     public Vector3 openOffset = new Vector3(0f, 0f, 0.4f);   // arah & jarak tarik (koordinat lokal parent)
     public float openSpeed = 1.5f;                           // meter per detik
     public bool canClose = true;                             // tekan E lagi untuk menutup
+    [SerializeField] private Transform movingPart;            // Bagian laci/pintu yang bergerak, bukan badan lemari
 
     [Header("Interaksi")]
     public string heroTag = "hero";
@@ -36,6 +37,7 @@ public class SlidingDrawer : MonoBehaviour
     private Vector3 closedPos;
     private Vector3 openPos;
     private bool isOpen;
+    private bool movementTargetValid;
     private Transform hero;
     private Inventory inventory;
     private Renderer rend;
@@ -51,17 +53,29 @@ public class SlidingDrawer : MonoBehaviour
 
     void Start()
     {
-        closedPos = transform.localPosition;
+        ResolveMovingPart();
+        if (movingPart == null)
+        {
+            Debug.LogWarning("[Drawer] " + name + " tidak memiliki bagian laci yang dapat digerakkan. Isi Moving Part agar badan lemari tidak bergeser.", this);
+            enabled = false;
+            return;
+        }
+
+        movementTargetValid = true;
+        closedPos = movingPart.localPosition;
         openPos = closedPos + openOffset;
-        rend = GetComponentInChildren<Renderer>();
+        rend = movingPart.GetComponent<Renderer>() ?? movingPart.GetComponentInChildren<Renderer>();
     }
 
     void Update()
     {
         // Gerakkan laci pelan-pelan
-        Vector3 target = isOpen ? openPos : closedPos;
-        transform.localPosition = Vector3.MoveTowards(
-            transform.localPosition, target, openSpeed * Time.deltaTime);
+        if (movementTargetValid && movingPart != null)
+        {
+            Vector3 target = isOpen ? openPos : closedPos;
+            movingPart.localPosition = Vector3.MoveTowards(
+                movingPart.localPosition, target, openSpeed * Time.deltaTime);
+        }
 
         if (!FindHero()) return;
 
@@ -101,6 +115,50 @@ public class SlidingDrawer : MonoBehaviour
         return true;
     }
 
+    private void ResolveMovingPart()
+    {
+        if (movingPart != null)
+        {
+            return;
+        }
+
+        // Existing scene components live on Drawer B 1/2/3. One legacy
+        // component lives on the cabinet root, so resolve a drawer leaf instead
+        // of ever translating the whole cabinet.
+        if (transform.name.IndexOf("Drawer", System.StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            movingPart = transform;
+            return;
+        }
+
+        Vector3 probe = hero != null ? ProbePoint() : transform.position;
+        Transform closestDrawer = null;
+        float closestDistance = float.MaxValue;
+        Transform[] parts = GetComponentsInChildren<Transform>(true);
+        foreach (Transform part in parts)
+        {
+            if (part == transform || part.name.IndexOf("Drawer", System.StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                continue;
+            }
+
+            Renderer partRenderer = part.GetComponent<Renderer>() ?? part.GetComponentInChildren<Renderer>();
+            if (partRenderer == null)
+            {
+                continue;
+            }
+
+            float distance = Vector3.Distance(partRenderer.bounds.ClosestPoint(probe), probe);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestDrawer = part;
+            }
+        }
+
+        movingPart = closestDrawer;
+    }
+
     // Titik sedikit di depan hero, setinggi tangan
     Vector3 ProbePoint()
     {
@@ -109,7 +167,10 @@ public class SlidingDrawer : MonoBehaviour
 
     float DistanceTo(Vector3 point)
     {
-        if (rend == null) return Vector3.Distance(transform.position, point);
+        if (movingPart == null)
+            return float.MaxValue;
+
+        if (rend == null) return Vector3.Distance(movingPart.position, point);
         return Vector3.Distance(rend.bounds.ClosestPoint(point), point);
     }
 
@@ -173,6 +234,12 @@ public class SlidingDrawer : MonoBehaviour
             if (dist < nearestDist) { nearest = d; nearestDist = dist; }
         }
 
+        if (nearest == null)
+        {
+            Debug.Log("[Drawer] Tidak ada bagian laci yang siap diinteraksikan.");
+            return;
+        }
+
         Debug.Log("[Drawer] Tidak ada laci dalam jangkauan. Terdekat: " + nearest.name +
                   ", jarak " + nearestDist.ToString("F2") + " (batas " + nearest.interactDistance + ").");
     }
@@ -180,9 +247,10 @@ public class SlidingDrawer : MonoBehaviour
     // Garis kuning di Scene view = arah & jarak laci akan bergeser (muncul saat laci dipilih)
     void OnDrawGizmosSelected()
     {
-        Transform p = transform.parent;
+        Transform target = movingPart != null ? movingPart : transform;
+        Transform p = target.parent;
         Vector3 worldOffset = p != null ? p.TransformVector(openOffset) : openOffset;
-        Vector3 start = transform.position;
+        Vector3 start = target.position;
         Vector3 end = start + worldOffset;
 
         Gizmos.color = Color.yellow;

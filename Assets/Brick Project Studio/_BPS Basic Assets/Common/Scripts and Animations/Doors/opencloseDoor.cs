@@ -1,4 +1,3 @@
-﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -11,46 +10,68 @@ namespace SojaExiles
         public Transform Player;
 
         [Header("Interaction")]
-        public float interactDistance = 3f;   // Jarak maksimal bisa buka pintu
-        public Key interactKey = Key.E;       // Tombol buka/tutup
+        public float interactDistance = 3f;
+        public Key interactKey = Key.E;
 
-        void Start()
+        private void Start()
         {
-            open = false;
+            if (openandclose == null)
+                openandclose = GetComponent<Animator>();
         }
 
-        void Update()
+        private void Update()
         {
-            if (Player == null) return;
+            // In the main scene the player controller chooses one door in front
+            // of the player. Avoid every nearby door responding to the same key.
+            if (global::PlayerDoorInteraction.ActivePlayer != null)
+                return;
 
-            float dist = Vector3.Distance(Player.position, transform.position);
+            if (Player == null || Keyboard.current == null ||
+                !Keyboard.current[interactKey].wasPressedThisFrame)
+                return;
 
-            // Kalau player dekat dan tekan E
-            if (dist <= interactDistance && Keyboard.current[interactKey].wasPressedThisFrame)
+            if (Vector3.Distance(Player.position, transform.position) <= interactDistance &&
+                IsClosestDoorForPlayer())
             {
-                if (!open)
-                {
-                    StartCoroutine(opening());
-                }
-                else
-                {
-                    StartCoroutine(closing());
-                }
+                ToggleDoor();
             }
         }
 
-        IEnumerator opening()
+        private bool IsClosestDoorForPlayer()
         {
-            openandclose.Play("Opening");
-            open = true;
-            yield return new WaitForSeconds(0.5f);
+            opencloseDoor[] doors = UnityEngine.Object.FindObjectsByType<opencloseDoor>(FindObjectsSortMode.None);
+            opencloseDoor closest = null;
+            float closestDistance = float.MaxValue;
+
+            foreach (opencloseDoor door in doors)
+            {
+                if (door == null || door.Player != Player || door.openandclose == null)
+                    continue;
+
+                float distance = Vector3.Distance(Player.position, door.transform.position);
+                if (distance <= door.interactDistance && distance < closestDistance)
+                {
+                    closest = door;
+                    closestDistance = distance;
+                }
+            }
+
+            return closest == this;
         }
 
-        IEnumerator closing()
+        public void ToggleDoor()
         {
-            openandclose.Play("Closing");
-            open = false;
-            yield return new WaitForSeconds(0.5f);
+            SetOpen(!open);
+        }
+
+        public void SetOpen(bool shouldOpen)
+        {
+            if (openandclose == null || open == shouldOpen)
+                return;
+
+            open = shouldOpen;
+            openandclose.Play(open ? "Opening" : "Closing", 0, 0f);
+
         }
     }
 }

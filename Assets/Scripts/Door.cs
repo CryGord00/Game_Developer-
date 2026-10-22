@@ -10,6 +10,8 @@ public class Door : MonoBehaviour
     private Quaternion openRot;
     private bool isOpen;
 
+    public bool IsOpen => isOpen;
+
     void Awake()
     {
         // Nilai di Inspector bisa 0 walau default di kode bukan 0
@@ -18,7 +20,6 @@ public class Door : MonoBehaviour
 
         closedRot = transform.localRotation;
         openRot = closedRot * Quaternion.Euler(0f, openAngle, 0f);
-
         // Animator akan menimpa rotasi dari script
         Animator anim = GetComponentInParent<Animator>();
         if (anim == null) anim = GetComponentInChildren<Animator>();
@@ -43,7 +44,23 @@ public class Door : MonoBehaviour
 
     public void ToggleDoor()
     {
-        isOpen = !isOpen;
+        SetOpen(!isOpen);
+    }
+
+    public void SetOpen(bool shouldOpen)
+    {
+        if (isOpen == shouldOpen)
+        {
+            return;
+        }
+
+        isOpen = shouldOpen;
         Debug.Log("[Door] '" + name + "' sekarang " + (isOpen ? "TERBUKA" : "TERTUTUP"), this);
+    }
+
+    public void SetOpenImmediately(bool shouldOpen)
+    {
+        isOpen = shouldOpen;
+        transform.localRotation = shouldOpen ? openRot : closedRot;
     }
 }

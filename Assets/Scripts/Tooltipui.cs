@@ -1,14 +1,14 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using TMPro;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(CanvasGroup))]
 public class TooltipUI : MonoBehaviour
 {
     public static TooltipUI Instance { get; private set; }
 
-    public TMP_Text nameText;
-    public TMP_Text descriptionText;
+    public Text nameText;
+    public Text descriptionText;
     public Vector2 offset = new Vector2(16f, -16f);
 
     private CanvasGroup group;

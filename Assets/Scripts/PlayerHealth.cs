@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
-using UnityEngine.InputSystem;
-using TMPro;
+using UnityEngine.InputSystem;    
 
 // Pasang di hero (object yang sama dengan komponen Inventory).
 public class PlayerHealth : MonoBehaviour
@@ -14,7 +13,7 @@ public class PlayerHealth : MonoBehaviour
 
     [Header("UI (opsional)")]
     public Slider healthBar;            // UI > Slider
-    public TMP_Text healthText;         // contoh: "50 / 100"
+    public Text healthText;         // contoh: "50 / 100"
 
     [Header("Event")]
     public UnityEvent onDeath;          // hubungkan ke game over, animasi mati, dll
@@ -26,10 +25,12 @@ public class PlayerHealth : MonoBehaviour
     public bool IsDead { get; private set; }
 
     private Inventory inventory;
+    private Animator playerAnimator;
 
     void Awake()
     {
         CurrentHealth = startAtMax ? maxHealth : Mathf.Clamp(startHealth, 0, maxHealth);
+        playerAnimator = GetComponentInChildren<Animator>(true);
         UpdateUI();
     }
 
@@ -86,8 +87,47 @@ public class PlayerHealth : MonoBehaviour
     void Die()
     {
         IsDead = true;
+        if (playerAnimator != null)
+        {
+            playerAnimator.applyRootMotion = false;
+            playerAnimator.CrossFade("m_death_A", 0.08f, 0);
+        }
+
+        HeroMovement movement = GetComponent<HeroMovement>();
+        if (movement != null)
+        {
+            movement.enabled = false;
+        }
+
+        CharacterController characterController = GetComponent<CharacterController>();
+        if (characterController != null)
+        {
+            characterController.enabled = false;
+        }
+
         Debug.Log("Player mati!");
         onDeath?.Invoke();
+
+        StartCoroutine(ShowGameOverAfterDeathAnimation());
+    }
+
+    private System.Collections.IEnumerator ShowGameOverAfterDeathAnimation()
+    {
+        // Biarkan animasi mati terlihat sebelum layar Game Over membekukan permainan.
+        yield return new WaitForSecondsRealtime(1.2f);
+
+        // Hubungkan Game Over secara otomatis agar scene tetap bekerja meski
+        // UnityEvent onDeath belum diisi di Inspector.
+        GameFlow gameFlow = GameFlow.Instance;
+        if (gameFlow == null)
+        {
+            gameFlow = FindObjectOfType<GameFlow>();
+        }
+
+        if (gameFlow != null)
+        {
+            gameFlow.Lose();
+        }
     }
 
     void UpdateUI()

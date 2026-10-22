@@ -1,5 +1,5 @@
 using UnityEngine;
-using TMPro;
+using UnityEngine.UI;
 
 // Teks "Tekan E" yang dipakai bersama oleh laci, pintu, dan benda interaktif lain.
 // Pasang di object UI yang SELALU AKTIF (dibuat otomatis lewat Tools > Inventory > Build Interaction Prompt).
@@ -12,7 +12,7 @@ public class InteractionPrompt : MonoBehaviour
 {
     public static InteractionPrompt Instance { get; private set; }
 
-    public TMP_Text promptText;
+    public Text promptText;
 
     private CanvasGroup group;
     private object currentOwner;

@@ -1,9 +1,13 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using System;
+using SojaExiles;
 using UnityEngine.InputSystem;
 
 public class PlayerDoorInteraction : MonoBehaviour
 {
+    public static PlayerDoorInteraction ActivePlayer { get; private set; }
+
     [SerializeField] private float interactDistance = 2f;
     [SerializeField, Range(-1f, 1f)] private float facingThreshold = 0.3f;
     [SerializeField] private bool useCameraForward = false;
@@ -13,6 +17,29 @@ public class PlayerDoorInteraction : MonoBehaviour
 
     private readonly Dictionary<Animator, bool> isOpen = new Dictionary<Animator, bool>();
     private readonly Dictionary<Animator, float> nextAllowed = new Dictionary<Animator, float>();
+
+    private void Awake()
+    {
+        // This component was also placed on some door-frame objects. Only the
+        // actual player should scan for doors and consume the interaction key.
+        bool belongsToPlayer = GetComponent<HeroMovement>() != null ||
+                               gameObject.name.Equals("hero", StringComparison.OrdinalIgnoreCase) ||
+                               gameObject.name.Equals("player", StringComparison.OrdinalIgnoreCase);
+
+        if (!belongsToPlayer || (ActivePlayer != null && ActivePlayer != this))
+        {
+            enabled = false;
+            return;
+        }
+
+        ActivePlayer = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (ActivePlayer == this)
+            ActivePlayer = null;
+    }
 
     private void Start()
     {
@@ -65,10 +92,21 @@ public class PlayerDoorInteraction : MonoBehaviour
     {
         if (nextAllowed.TryGetValue(anim, out float t) && Time.time < t) return;
 
-        isOpen.TryGetValue(anim, out bool open);
+        opencloseDoor doorController = anim.GetComponent<opencloseDoor>();
+        bool open = doorController != null
+            ? doorController.open
+            : isOpen.TryGetValue(anim, out bool rememberedOpen) && rememberedOpen;
         open = !open;
         isOpen[anim] = open;
         nextAllowed[anim] = Time.time + cooldown;
+
+        // Keep the door script state in sync. Its own key polling is disabled
+        // when the player interaction controller is active.
+        if (doorController != null)
+        {
+            doorController.SetOpen(open);
+            return;
+        }
 
         anim.Play(open ? openState : closeState, 0, 0f);
         Debug.Log("Pintu '" + anim.name + "' -> " + (open ? "BUKA" : "TUTUP"));
